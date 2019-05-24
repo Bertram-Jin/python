@@ -1,0 +1,55 @@
+CSRF（Crocc-Site Request Forgery）,跨站点请求伪造
+解释：从网站A跳转到网站B，但伪造假象：是从B本身开始跳转的
+django应用中间件django.middleware.csrf.CsrfViewMiddleware来防止CSRF类型的攻击
+django防护措施分为两种：该中间件，
+1、全局
+  在setting中添加该中间件
+2、局部
+  在单独的视图文件中，引入from django.views.decorators.csrf import csrf_exempt,csrf_protect
+  @csrf_exempt--取消防跨站请求伪造功能，无视setting是否添加全局设置
+  @csrf_protect--设置防跨站请求伪造功能,无视setting是否添加全局设置
+流程步骤：
+1、后台响应某个请求时设置一个token，并放在cookie中传给客户端
+2、客户端需要在HTML页面添加{{csrf_token}}以获取cookie中token指
+注意：主要应用场景：form表单的提交，ajax的post请求
+3、将该值传给后台，后台将该值与cookie中的csrftoken进行比较验证
+
+应用场景：
+1、form表单
+  在form表单中增加一个快标签{%csrf_token%}，其意义实在表单中添加
+  <input type='hidden' name='csrfmiddlewaretoke' value='{{csrf_token}}' 
+  其中，csrf_token是cookie中的csrftoken
+  提交请求后，后台会验证请求的cookie的csrftoken和表单中的csrfmiddlenwaretoken的值
+ 2、ajax
+  在请求头中添加token信息，有两种选择：
+    a、$.ajax({url:'',type:'post',data:{csrfmiddlewaretoken:'{{csrf_token}}')或者
+    $.ajax({header:{'X-CSRFToken:$.cookie('csrftoken')}})
+    b、利用jquery的ajaxSetup，做一个全局的ajax请求头配置
+        var csrftoken = $.cookie('csrftoken');
+        function csrfSafeMethod(method) {
+            // these HTTP methods do not require CSRF protection
+            return (/^(GET|HEAD|OPTIONS|TRACE)$/.test(method));
+        }
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (!csrfSafeMethod(settings.type) && !this.crossDomain) {
+                    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+                }
+            }
+        });
+django后台操作：设置token
+1、render_to_response()
+返回响应的时候，通常用django.template.Context上下文，却未使用django.template.RequestContext(前者的子类)
+设置token的正确方法是：render_to_response('xxx.html',content_instance=RequestContext(request))
+2、render()
+其在内部设定context_instance缺省是RequestContext的一个实例，所以无需显式设定
+3、利用模板
+from djangp.http import HttpReponse
+from django.template import loader,RequestContext
+t = loader.get_template('xxx.html')
+c= RequestContext(request,{'text':'success'})
+return HttpResponce(t.render(c))
+
+下节将介绍Context 和 RequestContext以及HttpResponseRedirect和redirect
+
+
